@@ -1,0 +1,4 @@
+yt-dlp>=2023.12.30
+moviepy>=1.0.3
+openai-whisper>=20231117
+regex>=2023.12.25 
