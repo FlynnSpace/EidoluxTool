@@ -1,0 +1,14 @@
+# Whisper模型文件夹
+models/
+
+# 临时音频文件
+*.mp3
+*.wav
+*.m4a
+downloaded_audio.*
+
+# 日志文件
+*.log 
+
+# 浏览器cookies文件
+youtube.com_cookies.txt

@@ -5,3 +5,4 @@ regex==2024.11.6
 torch==2.5.1
 torchaudio==2.5.1
 torchvision==0.20.1
+opencc-python-reimplemented==0.1.7
