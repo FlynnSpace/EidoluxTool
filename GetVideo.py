@@ -26,13 +26,11 @@ def identify_source(url):
         return "local"
     
     # Bilibili模式
-    bilibili_pattern = r'(?:https?://)?(?:www\.)?bilibili\.com/video/(?:av\d+|BV[\w]+)'
-    if re.match(bilibili_pattern, url):
+    if "bilibili" in url.lower():
         return "bilibili"
     
     # YouTube模式
-    youtube_pattern = r'(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)[\w-]+'
-    if re.match(youtube_pattern, url):
+    if "youtube" in url.lower() in url.lower():
         return "youtube"
     
     return None
@@ -56,6 +54,16 @@ def download_video(url, source_type):
             'force_generic_extractor': False
         }
         
+        video_title = None
+        
+        # 首先获取视频标题
+        try:
+            with YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                video_title = info.get('title', None)
+        except Exception as e:
+            print(f"获取视频标题失败: {str(e)}")
+        
         # 首先尝试使用cookies文件
         cookies_file = "youtube.com_cookies.txt"
         if os.path.exists(cookies_file):
@@ -64,7 +72,7 @@ def download_video(url, source_type):
             try:
                 with YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
-                return "downloaded_audio.mp3"
+                return "downloaded_audio.mp3", video_title
             except Exception as e:
                 print(f"使用cookies文件下载失败: {str(e)}")
         
@@ -83,7 +91,7 @@ def download_video(url, source_type):
                 ydl_opts['cookiesfrombrowser'] = (browser,)
                 with YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
-                return "downloaded_audio.mp3"
+                return "downloaded_audio.mp3", video_title
             except Exception as e:
                 print(f"使用 {browser_name} 浏览器的 cookies 失败: {str(e)}")
                 continue
@@ -97,7 +105,7 @@ def download_video(url, source_type):
                 del ydl_opts['cookiefile']
             with YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-            return "downloaded_audio.mp3"
+            return "downloaded_audio.mp3", video_title
         except Exception as e:
             raise RuntimeError(f"下载失败: {str(e)}\n请按照以下步骤操作：\n1. 使用浏览器扩展（如 'Get cookies.txt'）导出YouTube的cookies\n2. 将导出的cookies文件重命名为 'youtube.com_cookies.txt' 并放在程序同目录下\n3. 确保已在浏览器中登录YouTube账号\n4. 如果使用Chrome，请先关闭所有Chrome窗口")
     elif source_type == "local":
@@ -106,7 +114,9 @@ def download_video(url, source_type):
             audio_path = "extracted_audio.mp3"
             audio.write_audiofile(audio_path, verbose=False, logger=None)
             audio.close()
-            return audio_path
+            # 对于本地文件，使用文件名作为标题
+            video_title = os.path.splitext(os.path.basename(url))[0]
+            return audio_path, video_title
         except Exception as e:
             raise RuntimeError(f"处理本地视频文件时出错: {str(e)}")
 
@@ -275,7 +285,6 @@ def transcribe_audio(audio_path, segment_length=30, audio_language=None, model_s
     # 保存带时间戳的文本
     timestamped_segments = []
     
-    print("\n处理文本格式...")
     for segment in segments:
         start_time = segment.start
         end_time = segment.end
@@ -326,7 +335,8 @@ def transcribe_audio(audio_path, segment_length=30, audio_language=None, model_s
     # 返回处理结果
     return {
         "text": formatted_text,  # 中文正文
-        "timestamped_text": timestamped_text  # 带时间戳的中文文本
+        "timestamped_text": timestamped_text,  # 带时间戳的中文文本
+        "title": None
     }
 
 def process_video(url, segment_length=5, language=None, model_size="large-v3", compute_precision="float16", num_workers=4, beam_size=5, output_type="both"):
@@ -357,7 +367,7 @@ def process_video(url, segment_length=5, language=None, model_size="large-v3", c
         return "无法识别的URL或文件格式"
     
     try:
-        audio_path = download_video(url, source_type)
+        audio_path, video_title = download_video(url, source_type)
         result = transcribe_audio(
             audio_path, 
             segment_length, 
@@ -368,6 +378,10 @@ def process_video(url, segment_length=5, language=None, model_size="large-v3", c
             beam_size=beam_size,
             output_type=output_type
         )
+        
+        # 添加视频标题到结果中
+        if isinstance(result, dict):
+            result['title'] = video_title
         
         # 清理临时文件
         if os.path.exists(audio_path):
@@ -440,6 +454,8 @@ def process_urls(url, segment_length=2, language=None, print_info=True,
     
     return result
 
+
+# TODO: 时间戳的翻译功能是逐条提交的，非常耗时，并且翻译后会和text合并
 if __name__ == "__main__":
     #url = "test_video.mp4",  # 本地文件示例
     #url = "https://www.bilibili.com/video/BV1NJ9QY8E6c",  # Bilibili示例

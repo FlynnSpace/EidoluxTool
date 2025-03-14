@@ -12,3 +12,12 @@ downloaded_audio.*
 
 # 浏览器cookies文件
 youtube.com_cookies.txt
+
+# 密钥文件
+key.txt
+
+# 输出文件夹
+outputMindmap/
+
+# 视频文件夹
+videos/
